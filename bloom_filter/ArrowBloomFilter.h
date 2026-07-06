@@ -85,7 +85,7 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
             bitvector.assign(static_cast<std::size_t>(num_blocks), 0);
         }
     private:
-        // physical division of hash values
+        // physical division of hash value bits
         //      [...][block id][6 bits - rotation][10 bits - mask id]
         // physical structures
         static BloomFilterMasks masks;
