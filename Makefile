@@ -1,7 +1,7 @@
 CXX := g++
 
 CPPFLAGS := -I.
-CXXFLAGS := -std=c++17 -Wall -Wextra -pedantic -O2
+CXXFLAGS := -std=c++17 -Wall -Wextra -pedantic -O2 -mavx2
 
 BUILD_DIR := build
 TARGET := bloom_test

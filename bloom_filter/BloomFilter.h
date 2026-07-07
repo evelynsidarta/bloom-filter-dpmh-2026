@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 
 // class implementation
 template <typename BloomFilterImpl>
@@ -14,6 +15,15 @@ class BloomFilter {
         // lookup function
         bool contains(uint64_t hash) const {
             return this->impl().containsImpl(hash);
+        }
+        // batch functions
+        void insertBatch(const std::uint64_t* hash_array, std::size_t count) {
+            this->impl().insertBatchImpl(hash_array, count);
+        }
+        void containsBatch(const std::uint64_t* hash_array,
+                                uint8_t* result,
+                                std::size_t count) const {
+            this->impl().containsBatchImpl(hash_array, result, count);
         }
     private:
         // to get correct BloomFilter implementation

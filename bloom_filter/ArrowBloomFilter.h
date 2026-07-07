@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cstddef>
+#include <immintrin.h>
 
 // original reference: https://github.com/apache/arrow/blob/main/cpp/src/arrow/acero/bloom_filter.h
 
@@ -136,8 +137,6 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
             uint64_t& b = bitvector[block_id(hash)];
             b = b | m;
         }
-        // TODO: SIMD implementation
-        // void insert();
 
         // membership check
         inline bool containsImpl(uint64_t hash) const {
@@ -145,8 +144,6 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
             uint64_t b = bitvector[block_id(hash)];
             return (b & m) == m;
         }
-        // TODO: SIMD implementation
-        // void contains() const;
 
         // function to shrink the bloom filter
         //      can be used if there are too many bits allocated for the bloom filter
@@ -154,4 +151,16 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
         //      a logical OR, which shrinks the filter size into half,
         //      but this is a tradeoff since this means we have more false positives
         // void fold();
+
+        // batch functions
+        void insertBatchImpl(const std::uint64_t* hash_array, std::size_t count);
+        void containsBatchImpl(const std::uint64_t* hash_array, uint8_t* result, std::size_t count) const;
+
+        // helper function for avx2 implementations
+#ifdef __AVX2__
+        inline __m256i mask_avx2(__m256i hash) const;
+        inline __m256i block_id_avx2(__m256i hash) const;
+        std::size_t insertBatchImpl_avx2(const std::uint64_t* hash_array, std::size_t count);
+        std::size_t containsBatchImpl_avx2(const std::uint64_t* hash_array, uint8_t* result, std::size_t count) const;
+#endif
 };

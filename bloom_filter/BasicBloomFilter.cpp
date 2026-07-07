@@ -43,3 +43,18 @@ std::size_t BasicBloomFilter::generate_bit(std::uint64_t hash, std::size_t i) co
     hash = hash % num_bits;
     return static_cast<std::size_t>(hash);
 }
+
+void BasicBloomFilter::insertBatchImpl(const std::uint64_t* hash_array, std::size_t count) {
+    for (std::size_t i = 0; i < count; i++) {
+        insertImpl(hash_array[i]);
+    }
+}
+
+void BasicBloomFilter::containsBatchImpl(const std::uint64_t* hash_array, std::uint8_t* result, std::size_t count) const {
+    std::fill(result, result + ((count + 7) / 8), 0);
+    for (std::size_t i = 0; i < count; i++) {
+        if (containsImpl(hash_array[i])) {
+            result[i / 8] |= static_cast<std::uint8_t>(1u << (i % 8));
+        }
+    }
+}
