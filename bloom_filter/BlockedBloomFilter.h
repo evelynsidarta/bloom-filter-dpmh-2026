@@ -2,27 +2,36 @@
 
 #include "BloomFilter.h"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
 class BlockedBloomFilter : public BloomFilter<BlockedBloomFilter> {
+    friend class BloomFilter<BlockedBloomFilter>;
     public:
-        BlockedBloomFilter();
+        BlockedBloomFilter(std::int64_t rows_to_insert);
     private:
-        friend class BloomFilter<BlockedBloomFilter>;
+        static constexpr int bits_per_block = 64;
+        static constexpr int log_bits_block = 6;
+        // bits allocated per key
+        static constexpr int bitsPerKey = 8;
+        // number of hash positions
+        static constexpr int num_hashes = 4;
+        // minimum size for bloom filter
+        static constexpr std::int64_t min_num_bits = 512;
+        // for the bloom filter itself
+        std::vector<std::uint64_t> bitvector;
+        int log_num_blocks;
+        std::uint64_t num_blocks;
 
-        void insertImpl(uint64_t hash);
-        bool containsImpl(uint64_t hash) const;
+        std::uint64_t mask(std::uint64_t hash) const;
+        std::size_t block_id(std::uint64_t hash) const;
 
-        // setting and getting the bits in the array
-        void setBit(std::size_t idx);
-        bool getBit(std::size_t idx) const;
-
-        // to simulate having different hash functions, we use the input hash
-        //      and then "hash" it even more to derive multiple bit indexes out of it
-        //      to turn it into a "fairer" comparison vs. arrow's 1 hash implementation
-        std::size_t generate_bit(std::uint64_t hassh, std::size_t i) const;
-
-        // physical structure
-        std::vector<std::uint8_t> bitvector;
-        // number of bits that need to be set at a minimum (and maximum)
-        std::size_t num_hashes;
-        std::size_t num_bits;
+        void insertImpl(std::uint64_t hash);
+        bool containsImpl(std::uint64_t hash) const;
+        void insertBatchImpl(const std::uint64_t* hash_array, std::size_t count);
+        void containsBatchImpl(const std::uint64_t* hash_array,
+                                    std::uint8_t* result,
+                                    std::size_t count) const;
 };

@@ -1,33 +1,33 @@
 CXX := g++
 
 CPPFLAGS := -I.
-CXXFLAGS := -std=c++17 -Wall -Wextra -pedantic -O2 -mavx2
+CXXFLAGS := -std=c++17 -Wall -Wextra -Wpedantic -O2 -mavx2
 
 BUILD_DIR := build
-TARGET := bloom_test
+TARGET := $(BUILD_DIR)/bloom_test
 
 SRCS := src/test.cpp \
-        bloom_filter/ArrowBloomFilter.cpp \
-        bloom_filter/BasicBloomFilter.cpp
+		bloom_filter/BasicBloomFilter.cpp \
+        bloom_filter/BlockedBloomFilter.cpp \
+        bloom_filter/ArrowBloomFilter.cpp
 
-OBJS := $(patsubst %.cpp,$(BUILD_DIR)/%.o,$(SRCS))
-DEPS := $(OBJS:.o=.d)
+HEADERS := $(wildcard bloom_filter/*.h) \
+		$(wildcard util/*.h)
 
-.PHONY: all run clean
+.PHONY: all test run clean
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) $(OBJS) -o $@
+$(TARGET): $(SRCS) $(HEADERS) | $(BUILD_DIR)
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) $(SRCS) -o $(TARGET)
 
-$(BUILD_DIR)/%.o: %.cpp
-	mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -MMD -MP -c $< -o $@
+$(BUILD_DIR): 
+	mkdir -p $(BUILD_DIR)
 
-run: $(TARGET)
-	./$(TARGET)
+test: $(TARGET)
+	 ./$(TARGET)
+
+run: test
 
 clean:
-	rm -rf $(BUILD_DIR) $(TARGET)
-
--include $(DEPS)
+	rm -rf $(BUILD_DIR)

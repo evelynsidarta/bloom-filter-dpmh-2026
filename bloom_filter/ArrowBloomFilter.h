@@ -9,6 +9,7 @@
 #include <cstring>
 #include <cstddef>
 #include <immintrin.h>
+#include <stdexcept>
 
 // original reference: https://github.com/apache/arrow/blob/main/cpp/src/arrow/acero/bloom_filter.h
 
@@ -27,7 +28,7 @@ struct BloomFilterMasks {
     static constexpr int maxBitsSet = 5;
     // mask that selects the lowest 57 bits (fill with 1)
     //      rest of the bits outside of the needed 57 are 0
-    static constexpr uint64_t fullMask = (1ULL << bitsPerMask) - 1;
+    static constexpr std::uint64_t fullMask = (1ULL << bitsPerMask) - 1;
     // number of bytes needed for the mask
     //      since blocks are moved to the right
     //      and there is an overlap between the masks depending on offset
@@ -39,19 +40,19 @@ struct BloomFilterMasks {
     static constexpr int numberMasks = 1 << logNumberMasks;
     // total number of bytes needed for all masks
     static constexpr int totalBytes = (numberMasks + 64) / 8;
-    uint8_t masks[totalBytes];
+    std::uint8_t masks[totalBytes];
     BloomFilterMasks();
     // extract a 57-bit mask starting at an arbitrary bit position
     //      the mask represents the # of bits that should be checked
     //      to verify membership
     // e.g. if bit_offset is 13, then bit_offset % 8 = 5
     //      so we shift by 5 bits and then keep the next 57 bits
-    inline uint64_t mask(int bit_offset) const {
+    inline std::uint64_t mask(int bit_offset) const {
         // assume little endian
         // find the byte that contains the starting bit to be extracted
-        const uint8_t* start_byte = masks + bit_offset / 8;
+        const std::uint8_t* start_byte = masks + bit_offset / 8;
         // load 64 bits
-        uint64_t loaded_bits = 0;
+        std::uint64_t loaded_bits = 0;
         std::memcpy(&loaded_bits, start_byte, sizeof(loaded_bits));
         // shift to get the lowest 57 bits after the offset
         int shift = bit_offset % 8;
@@ -62,12 +63,21 @@ struct BloomFilterMasks {
 class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
     friend class BloomFilter<ArrowBloomFilter>;
     public:
-        ArrowBloomFilter(int64_t rows_to_insert) {
+        enum class ImplMode {
+            scalar, avx2
+        };
+
+        ArrowBloomFilter(std::size_t rows_to_insert, ImplMode mode = ImplMode::scalar) : impl_mode(mode) {
+#ifndef __AVX2__
+            if (impl_mode == ImplMode::avx2) {
+                throw std::invalid_argument("avx2 mode not available.");
+            }
+#endif
             // number of allocated filter bits per inserted key
-            constexpr int64_t bitsPerKey = 8;
+            constexpr std::size_t bitsPerKey = 8;
             // minimum allocated number of bits for the bloom filter
             //      so our filter does not become too small (high FP rate)
-            constexpr  int64_t min_num_bits = 512;
+            constexpr std::size_t min_num_bits = 512;
             // since we can heuristically achieve a certain number of FP rate
             // TODO: change this part to use the formula
             //      common bloom filter sizing formula:
@@ -75,8 +85,8 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
             //      n = expected number of items
             //      p = desired FP rate
             //      m = number of bits (max(512, rows_to_insert * bitsPerKey))
-            int64_t desired_num_bits = std::max(min_num_bits, rows_to_insert * bitsPerKey);
-            int log_num_bits = ceil_log2(desired_num_bits);
+            const std::size_t desired_num_bits = std::max(min_num_bits, rows_to_insert * bitsPerKey);
+            const int log_num_bits = ceil_log2(desired_num_bits);
             // convert bloom filter size from number of bits
             //      into number of 64-bit blocks
             //      2^6 = 64
@@ -96,15 +106,16 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
         std::vector<std::uint64_t> bitvector;
         // must be power of 2
         int log_num_blocks;
-        int64_t num_blocks;
+        std::size_t num_blocks;
+        ImplMode impl_mode;
 
         // helper function to create mask
         //      turn hash value into 64-bit mask
         //      used to set or check several bits at once in one block
-        inline uint64_t mask(uint64_t hash) const {
+        inline std::uint64_t mask(std::uint64_t hash) const {
             // use the lowest 10 bits of the hash to choose the mask
             int mask_id = static_cast<int>(hash & (BloomFilterMasks::numberMasks - 1));
-            uint64_t result = masks.mask(mask_id);
+            std::uint64_t result = masks.mask(mask_id);
             // extract 6 bits (max value 63) to use as rotation amount
             //      shifted first by logNumberMasks
             //      since the first 10 bits are already used for initial mask
@@ -123,7 +134,7 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
         //      should be used for the inserted values
         // blocked bloom filter = only retrieve one block from memory at a time
         //      so that lookup is cheap
-        inline int64_t block_id(uint64_t hash) const {
+        inline std::size_t block_id(std::uint64_t hash) const {
             // skip the first 16 bits of the hash
             //      since they were already used to pick mask id and for rotation
             //      use the next num_blocks amount of bits to pick the corresponding block
@@ -132,16 +143,16 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
         }
 
         // insert new members into the bloom filter
-        void insertImpl(uint64_t hash) {
-            uint64_t m = mask(hash);
-            uint64_t& b = bitvector[block_id(hash)];
+        void insertImpl(std::uint64_t hash) {
+            std::uint64_t m = mask(hash);
+            std::uint64_t& b = bitvector[block_id(hash)];
             b = b | m;
         }
 
         // membership check
         inline bool containsImpl(uint64_t hash) const {
-            uint64_t m = mask(hash);
-            uint64_t b = bitvector[block_id(hash)];
+            std::uint64_t m = mask(hash);
+            std::uint64_t b = bitvector[block_id(hash)];
             return (b & m) == m;
         }
 
@@ -154,13 +165,13 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
 
         // batch functions
         void insertBatchImpl(const std::uint64_t* hash_array, std::size_t count);
-        void containsBatchImpl(const std::uint64_t* hash_array, uint8_t* result, std::size_t count) const;
+        void containsBatchImpl(const std::uint64_t* hash_array, std::uint8_t* result, std::size_t count) const;
 
         // helper function for avx2 implementations
 #ifdef __AVX2__
         inline __m256i mask_avx2(__m256i hash) const;
         inline __m256i block_id_avx2(__m256i hash) const;
         std::size_t insertBatchImpl_avx2(const std::uint64_t* hash_array, std::size_t count);
-        std::size_t containsBatchImpl_avx2(const std::uint64_t* hash_array, uint8_t* result, std::size_t count) const;
+        std::size_t containsBatchImpl_avx2(const std::uint64_t* hash_array, std::uint8_t* result, std::size_t count) const;
 #endif
 };

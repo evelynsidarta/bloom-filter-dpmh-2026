@@ -29,11 +29,11 @@ BloomFilterMasks::BloomFilterMasks() {
     }
     // total of bits that we need to set is equal
     //      numberMasks + bits_needed_for_mask - 1
-    int64_t num_bits_total = numberMasks + bitsPerMask - 1;
+    std::size_t num_bits_total = numberMasks + bitsPerMask - 1;
     // generate the remaining masks after first one
     // start at bitsPerMask, since our first #bitsPerMask number of bits
     //      are already generated before
-    for (int64_t i = bitsPerMask; i < num_bits_total; i++) {
+    for (std::size_t i = bitsPerMask; i < num_bits_total; i++) {
         // take the value of the bit that is being left out by the sliding window
         //      e.g. for the first loop, digit 0 is not in the second
         //           sliding window anymore, so bit_leaving = 0;
@@ -106,8 +106,8 @@ inline __m256i ArrowBloomFilter::block_id_avx2(__m256i hash) const {
 std::size_t ArrowBloomFilter::insertBatchImpl_avx2(
     const std::uint64_t* hash_array, std::size_t count) {
     constexpr int unroll = 4;
-    int64_t loop_count = count - (count % unroll);
-    for (int64_t i = 0; i < loop_count; i = i + unroll) {
+    std::size_t loop_count = count - (count % unroll);
+    for (std::size_t i = 0; i < loop_count; i = i + unroll) {
         __m256i hash = _mm256_loadu_si256(
             reinterpret_cast<const __m256i*>(hash_array + i));
         __m256i mask = mask_avx2(hash);
@@ -122,13 +122,13 @@ std::size_t ArrowBloomFilter::insertBatchImpl_avx2(
 
 // batch contains implementation
 std::size_t ArrowBloomFilter::containsBatchImpl_avx2(
-    const std::uint64_t* hash_array, uint8_t* result, std::size_t count
+    const std::uint64_t* hash_array, std::uint8_t* result, std::size_t count
 ) const {
     constexpr int unroll = 8;
     constexpr int unroll_div2 = unroll / 2;
     const long long* blocks = reinterpret_cast<const long long*>(bitvector.data());
-    int64_t loop_count = count - (count % unroll);
-    for (int64_t i = 0; i < loop_count; i = i + unroll) {
+    std::size_t loop_count = count - (count % unroll);
+    for (std::size_t i = 0; i < loop_count; i = i + unroll) {
         __m256i hash_A = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(hash_array + i));
         __m256i hash_B = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(hash_array + i + unroll_div2));
         __m256i mask_A = mask_avx2(hash_A);
@@ -154,7 +154,9 @@ std::size_t ArrowBloomFilter::containsBatchImpl_avx2(
 void ArrowBloomFilter::insertBatchImpl(const std::uint64_t* hash_array, std::size_t count) {
     std::size_t processed = 0;
 #ifdef __AVX2__
-    processed = insertBatchImpl_avx2(hash_array, count);
+    if (impl_mode == ImplMode::avx2) {
+        processed = insertBatchImpl_avx2(hash_array, count);
+    }
 #endif
     // scalar tail
     for (std::size_t i = processed; i < count; i++) {
@@ -162,12 +164,14 @@ void ArrowBloomFilter::insertBatchImpl(const std::uint64_t* hash_array, std::siz
     }
 }
 
-void ArrowBloomFilter::containsBatchImpl(const std::uint64_t* hash_array, uint8_t* result, std::size_t count) const {
+void ArrowBloomFilter::containsBatchImpl(const std::uint64_t* hash_array, std::uint8_t* result, std::size_t count) const {
     std::size_t processed = 0;
     // clear result buffer
     std::fill(result, result + ((count + 7) / 8), 0);
 #ifdef __AVX2__
-    processed = containsBatchImpl_avx2(hash_array, result, count);
+    if (impl_mode == ImplMode::avx2) {
+        processed = containsBatchImpl_avx2(hash_array, result, count);
+    }
 #endif
     for (std::size_t i = processed; i < count; i++) {
         if (containsImpl(hash_array[i])) {
