@@ -122,3 +122,34 @@ inline std::vector<std::uint64_t> mix_vector(const std::vector<std::uint64_t>& v
     return v_mixed;
 }
 
+// helper function to get the median of the result vector
+inline double median(std::vector<double> values) {
+    std::sort(values.begin(), values.end());
+    std::size_t middle_pos = values.size() / 2;
+    if (values.size() % 2 != 0) {
+        return values[middle_pos];
+    }
+    return (values[middle_pos - 1] + values[middle_pos]) / 2.0;
+}
+
+// return tuple count
+inline std::size_t result_bytes(std::size_t tuple_count) {
+    return (tuple_count + 7) / 8;
+}
+
+// count all the true bits from a packed contains function
+inline std::size_t count_packed_true(const std::vector<std::uint8_t>& result,
+                                    std::size_t tuple_count) {
+    std::size_t filled_bytes = tuple_count / 8;
+    std::size_t count = 0;
+    for (std::size_t i = 0; i < filled_bytes; i++) {
+        count = count + static_cast<std::size_t>(__builtin_popcount(static_cast<unsigned>(result[i])));
+    }
+    // check tail bits
+    unsigned tail_bits = static_cast<unsigned>(tuple_count % 8);
+    if (tail_bits != 0) {
+        std::uint8_t mask = static_cast<std::uint8_t>((1 << tail_bits) - 1);
+        count = count + static_cast<std::size_t>(__builtin_popcount(static_cast<unsigned>(result[filled_bytes] & mask))); 
+    }
+    return count;
+}
