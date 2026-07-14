@@ -143,7 +143,7 @@ class ArrowBloomFilter : public BloomFilter<ArrowBloomFilter> {
         }
 
         // insert new members into the bloom filter
-        void insertImpl(std::uint64_t hash) {
+        inline void insertImpl(std::uint64_t hash) {
             std::uint64_t m = mask(hash);
             std::uint64_t& b = bitvector[block_id(hash)];
             b = b | m;

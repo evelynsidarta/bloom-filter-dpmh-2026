@@ -10,7 +10,8 @@ TEST_TARGET := $(BUILD_DIR)/bloom_test
 COMMON_SRCS := \
 		bloom_filter/BasicBloomFilter.cpp \
         bloom_filter/BlockedBloomFilter.cpp \
-        bloom_filter/ArrowBloomFilter.cpp
+        bloom_filter/ArrowBloomFilter.cpp \
+		bloom_filter/ModifiedArrowBloomFilter.cpp
 
 BENCHMARK_SRCS := \
 	src/bench.cpp \
@@ -25,6 +26,7 @@ COMMON_HEADERS := \
 	bloom_filter/BlockedBloomFilter.h \
 	bloom_filter/ArrowBloomFilter.h \
 	bloom_filter/BloomFilter.h \
+	bloom_filter/ModifiedArrowBloomFilter.h \
 	util/HelperFuncs.h
 
 BENCHMARK_HEADERS := \

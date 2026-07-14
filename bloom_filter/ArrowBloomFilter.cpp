@@ -117,7 +117,7 @@ std::size_t ArrowBloomFilter::insertBatchImpl_avx2(
         bitvector[_mm256_extract_epi64(block_id, 2)] |= _mm256_extract_epi64(mask, 2);
         bitvector[_mm256_extract_epi64(block_id, 3)] |= _mm256_extract_epi64(mask, 3);   
     }
-    return static_cast<std::size_t>(loop_count);
+    return loop_count;
 }
 
 // batch contains implementation

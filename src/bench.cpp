@@ -1,6 +1,7 @@
 #include "bloom_filter/BasicBloomFilter.h"
 #include "bloom_filter/BlockedBloomFilter.h"
 #include "bloom_filter/ArrowBloomFilter.h"
+#include "bloom_filter/ModifiedArrowBloomFilter.h"
 #include "util/HelperFuncs.h"
 #include "util/PerfEvent.h"
 
@@ -123,8 +124,7 @@ Config parse_args(int argc, char** argv) {
         };
         if (cur_arg == "-nr") {
             config.rows = parse_number(confirm_next("-nr"), "-nr");
-        } else if (cur_arg == "-nq") {
-            config.negative_queries = parse_number(confirm_next("-nq"), "-nq");
+            config.negative_queries = config.rows;
         } else if (cur_arg == "-r") {
             config.hot_runs = parse_number(confirm_next("-r"), "-r");
         } else if (cur_arg == "-wr") {
@@ -132,8 +132,11 @@ Config parse_args(int argc, char** argv) {
         } else if (cur_arg == "-f") {
             config.csv_path = confirm_next("-f");
         } else if (cur_arg == "--help" || cur_arg == "-h") {
-            std::cout << "Usage: bloom_bench [-nr N] [-nq N] [-r N] [-wr N] [-f PATH]\n"
-                      << "with -nr rows, -nq negative queries, -r hot runs, -wr warmup runs, -f csv path\n";
+            std::cout << "Usage: bloom_bench [-nr N] [-r N] [-wr N] [-f PATH]\n"
+                      << "with -nr rows,\n"
+                      << "     -r  hot runs,\n"
+                      << "     -wr warmup runs,\n"
+                      << "     -f  csv path\n";
             std::exit(0);
         } else {
             throw std::invalid_argument("Unknown option: " + cur_arg);
@@ -141,9 +144,6 @@ Config parse_args(int argc, char** argv) {
     }
     if (config.rows == 0) {
         throw std::invalid_argument("-r cannot be zero.\n");
-    }
-    if (config.negative_queries == 0) {
-        throw std::invalid_argument("-nq cannot be zero.\n");
     }
     if (config.hot_runs == 0) {
         throw std::invalid_argument("-r cannot be zero.\n");
@@ -155,24 +155,24 @@ Config parse_args(int argc, char** argv) {
 void print_table(const std::vector<BenchmarkResult>& results) {
     // for formatting only
     constexpr int w1 = 25;
-    constexpr int w2 = 10;
-    constexpr int w3 = 10;
-    constexpr int w4 = 17;
+    constexpr int w2 = 7;
+    constexpr int w3 = 7;
+    constexpr int w4 = 15;
     constexpr int w5 = 10;
     constexpr int t_w = w1 + 2 * w2 + w3 + 5 * w4 + 5 * w5;
     std::cout << '\n' << std::left << std::setw(w1) << "implementation"
               << std::left << std::setw(w2) << "insert"
               << std::left << std::setw(w2) << "probe"
               << std::right << std::setw(w3) << "FPR"
-              << std::right << std::setw(w4) << "build cycles"
+              << std::right << std::setw(w4) << "build cyc"
               << std::right << std::setw(w5) << "build s"
-              << std::right << std::setw(w4) << "insert cyc/tuple"
-              << std::right << std::setw(w5) << "insert ns"
-              << std::right << std::setw(w4) << "hit cyc/tuple"
+              << std::right << std::setw(w4) << "ins cyc/tup"
+              << std::right << std::setw(w5) << "ins ns"
+              << std::right << std::setw(w4) << "hit cyc/tup"
               << std::right << std::setw(w5) << "hit ns"
-              << std::right << std::setw(w4) << "miss cyc/tuple"
+              << std::right << std::setw(w4) << "miss cyc/tup"
               << std::right << std::setw(w5) << "miss ns"
-              << std::right << std::setw(w4) << "mixed cyc/tuple"
+              << std::right << std::setw(w4) << "mixed cyc/tup"
               << std::right << std::setw(w5) << "mixed ns"
               << '\n';
     std::cout << std::string(t_w, '=') << '\n';
@@ -448,7 +448,7 @@ int main(int argc, char** argv) {
     std::size_t basic_num_bits = calculate_arrow_equivalent_bits(config.rows, bits_per_key, min_num_bits);
     std::vector<BenchmarkResult> test_results;
     // TODO: adjust to number of tests
-    test_results.reserve(7);
+    test_results.reserve(10);
     // run tests and append results to the BenchmarkResult object
     std::cout << "Starting Bloom Filter benchmark with the following parameters:\n"
               << "rows: " << config.rows << '\n'
@@ -466,6 +466,12 @@ int main(int argc, char** argv) {
     };
     auto make_arrow_filter_avx2 = [&config]() {
         return std::make_unique<ArrowBloomFilter>(config.rows, ArrowBloomFilter::ImplMode::avx2);
+    };
+    auto make_modified_arrow_filter = [&config]() {
+        return std::make_unique<ModifiedArrowBloomFilter>(config.rows, ModifiedArrowBloomFilter::ImplMode::scalar);
+    };
+    auto make_modified_arrow_filter_avx2 = [&config]() {
+        return std::make_unique<ModifiedArrowBloomFilter>(config.rows, ModifiedArrowBloomFilter::ImplMode::avx2);
     };
     test_results.push_back(run_allBenchmark<BasicBloomFilter>(perf,
                                 "BasicBloomFilter", make_basic_filter,
@@ -487,6 +493,15 @@ int main(int argc, char** argv) {
                                 Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
     test_results.push_back(run_allBenchmark<ArrowBloomFilter>(perf,
                                 "ArrowBloomFilter_avx2", make_arrow_filter_avx2,
+                                Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
+    test_results.push_back(run_allBenchmark<ModifiedArrowBloomFilter>(perf,
+                                "ModifiedArrowFilter", make_modified_arrow_filter,
+                                Mode::scalar, Mode::scalar, to_insert, not_present, mixed, config));
+    test_results.push_back(run_allBenchmark<ModifiedArrowBloomFilter>(perf,
+                                "ModifiedArrowFilter", make_modified_arrow_filter,
+                                Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
+    test_results.push_back(run_allBenchmark<ModifiedArrowBloomFilter>(perf,
+                                "ModifiedArrowFilter_avx2", make_modified_arrow_filter_avx2,
                                 Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
     print_table(test_results);
     // write down results
