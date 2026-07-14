@@ -60,7 +60,7 @@ inline __m256i ModifiedArrowBloomFilter::block_id_avx2(__m256i hash) const {
 std::size_t ModifiedArrowBloomFilter::containsBatchImpl_avx2(
     const std::uint64_t* hash_array, std::uint8_t* result, std::size_t count) const {
     constexpr int unroll = 8;
-    constexpr int unroll_div2 = unroll / 2;
+    constexpr int unroll_div2 = unroll >> 1;
     const long long* blocks = reinterpret_cast<const long long*>(bitvector.data());
     const __m256i zero = _mm256_setzero_si256();
     std::size_t loop_count = count - (count % unroll);
@@ -82,7 +82,7 @@ std::size_t ModifiedArrowBloomFilter::containsBatchImpl_avx2(
         int lanes_B = _mm256_movemask_pd(_mm256_castsi256_pd(match_B));
         std::uint8_t packed = static_cast<std::uint8_t>((lanes_A & 0xF) | ((lanes_B & 0xF) << 4));
         // result is a packed bit vector
-        result[i / 8] = packed;
+        result[i >> 3] = packed;
     }
     return loop_count;
 }
@@ -102,7 +102,7 @@ void ModifiedArrowBloomFilter::containsBatchImpl(const std::uint64_t* hash_array
         if (processed == count) {
             return;
         }
-        const std::size_t output_byte = processed / 8;
+        const std::size_t output_byte = processed >> 3;
         std::uint8_t packed = 0;
         // tail
         for (std::size_t i = processed; i < count; i++) {
@@ -113,9 +113,9 @@ void ModifiedArrowBloomFilter::containsBatchImpl(const std::uint64_t* hash_array
     }
 #endif
     // scalar implementation
-    const std::size_t output_bytes = (count + 7) / 8;
+    const std::size_t output_bytes = (count + 7) >> 3;
     for (std::size_t byte = 0; byte < output_bytes; byte++) {
-        const std::size_t begin = byte * 8;
+        const std::size_t begin = byte << 3;
         const std::size_t end = std::min(begin + 8, count);
         std::uint8_t packed = 0;
         for (std::size_t i = begin; i < end; i++) {

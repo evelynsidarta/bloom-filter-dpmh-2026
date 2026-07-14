@@ -11,7 +11,9 @@ COMMON_SRCS := \
 		bloom_filter/BasicBloomFilter.cpp \
         bloom_filter/BlockedBloomFilter.cpp \
         bloom_filter/ArrowBloomFilter.cpp \
-		bloom_filter/ModifiedArrowBloomFilter.cpp
+		bloom_filter/ModifiedArrowBloomFilter.cpp \
+		bloom_filter/ImprovedArrowFilter.cpp \
+		#bloom_filter/ModifiedBlock16Filter.cpp
 
 BENCHMARK_SRCS := \
 	src/bench.cpp \
@@ -27,6 +29,7 @@ COMMON_HEADERS := \
 	bloom_filter/ArrowBloomFilter.h \
 	bloom_filter/BloomFilter.h \
 	bloom_filter/ModifiedArrowBloomFilter.h \
+	bloom_filter/ImprovedArrowFilter.h \
 	util/HelperFuncs.h
 
 BENCHMARK_HEADERS := \

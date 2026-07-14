@@ -2,6 +2,8 @@
 #include "bloom_filter/BlockedBloomFilter.h"
 #include "bloom_filter/ArrowBloomFilter.h"
 #include "bloom_filter/ModifiedArrowBloomFilter.h"
+// #include "bloom_filter/ModifiedBlock16Filter.h"
+#include "bloom_filter/ImprovedArrowFilter.h"
 #include "util/HelperFuncs.h"
 #include "util/PerfEvent.h"
 
@@ -448,7 +450,7 @@ int main(int argc, char** argv) {
     std::size_t basic_num_bits = calculate_arrow_equivalent_bits(config.rows, bits_per_key, min_num_bits);
     std::vector<BenchmarkResult> test_results;
     // TODO: adjust to number of tests
-    test_results.reserve(10);
+    test_results.reserve(13);
     // run tests and append results to the BenchmarkResult object
     std::cout << "Starting Bloom Filter benchmark with the following parameters:\n"
               << "rows: " << config.rows << '\n'
@@ -472,6 +474,18 @@ int main(int argc, char** argv) {
     };
     auto make_modified_arrow_filter_avx2 = [&config]() {
         return std::make_unique<ModifiedArrowBloomFilter>(config.rows, ModifiedArrowBloomFilter::ImplMode::avx2);
+    };
+    //auto make_modified_block16_filter = [&config]() {
+    //    return std::make_unique<ModifiedBlock16Filter>(config.rows, ModifiedBlock16Filter::ImplMode::scalar);
+    //};
+    //auto make_modified_block16_filter_avx2 = [&config]() {
+    //    return std::make_unique<ModifiedBlock16Filter>(config.rows, ModifiedBlock16Filter::ImplMode::avx2);
+    //};
+    auto make_impr_arrow_filter = [&config]() {
+        return std::make_unique<ImprovedArrowBloomFilter>(config.rows, ImprovedArrowBloomFilter::ImplMode::scalar);
+    };
+    auto make_impr_arrow_filter_avx2 = [&config]() {
+        return std::make_unique<ImprovedArrowBloomFilter>(config.rows, ImprovedArrowBloomFilter::ImplMode::avx2);
     };
     test_results.push_back(run_allBenchmark<BasicBloomFilter>(perf,
                                 "BasicBloomFilter", make_basic_filter,
@@ -502,6 +516,24 @@ int main(int argc, char** argv) {
                                 Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
     test_results.push_back(run_allBenchmark<ModifiedArrowBloomFilter>(perf,
                                 "ModifiedArrowFilter_avx2", make_modified_arrow_filter_avx2,
+                                Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
+    //test_results.push_back(run_allBenchmark<ModifiedBlock16Filter>(perf,
+    //                            "16BitBlockFilter", make_modified_block16_filter,
+    //                            Mode::scalar, Mode::scalar, to_insert, not_present, mixed, config));
+    //test_results.push_back(run_allBenchmark<ModifiedBlock16Filter>(perf,
+    //                            "16BitBlockFilter", make_modified_block16_filter,
+    //                            Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
+    //test_results.push_back(run_allBenchmark<ModifiedBlock16Filter>(perf,
+    //                            "16BitBlockFilter_avx2", make_modified_block16_filter_avx2,
+    //                            Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
+    test_results.push_back(run_allBenchmark<ImprovedArrowBloomFilter>(perf,
+                                "ImprovedArrow", make_impr_arrow_filter,
+                                Mode::scalar, Mode::scalar, to_insert, not_present, mixed, config));
+    test_results.push_back(run_allBenchmark<ImprovedArrowBloomFilter>(perf,
+                                "ImprovedArrow", make_impr_arrow_filter,
+                                Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
+    test_results.push_back(run_allBenchmark<ImprovedArrowBloomFilter>(perf,
+                                "ImprovedArrow_avx2", make_impr_arrow_filter_avx2,
                                 Mode::batch, Mode::batch, to_insert, not_present, mixed, config));
     print_table(test_results);
     // write down results

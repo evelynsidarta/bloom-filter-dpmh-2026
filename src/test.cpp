@@ -2,6 +2,8 @@
 #include "bloom_filter/BlockedBloomFilter.h"
 #include "bloom_filter/ArrowBloomFilter.h"
 #include "bloom_filter/ModifiedArrowBloomFilter.h"
+// #include "bloom_filter/ModifiedBlock16Filter.h"
+#include "bloom_filter/ImprovedArrowFilter.h"
 #include "util/HelperFuncs.h"
 
 #include <algorithm>
@@ -198,6 +200,10 @@ int main() {
     ArrowBloomFilter arrow_filter_avx2(rows_to_insert, ArrowBloomFilter::ImplMode::avx2);
     ModifiedArrowBloomFilter modified_arrow_filter(rows_to_insert, ModifiedArrowBloomFilter::ImplMode::scalar);
     ModifiedArrowBloomFilter modified_arrow_avx2(rows_to_insert, ModifiedArrowBloomFilter::ImplMode::avx2);
+    // ModifiedBlock16Filter modified_block16_filter(rows_to_insert, ModifiedBlock16Filter::ImplMode::scalar);
+    // ModifiedBlock16Filter modified_block16_avx2(rows_to_insert, ModifiedBlock16Filter::ImplMode::avx2);
+    ImprovedArrowBloomFilter impr_arrow_filter(rows_to_insert, ImprovedArrowBloomFilter::ImplMode::scalar);
+    ImprovedArrowBloomFilter impr_arrow_filter_avx2(rows_to_insert, ImprovedArrowBloomFilter::ImplMode::avx2);
     // run all tests for every implementations
     run_allTests("BasicBloomFilter", basic_filter, to_insert, not_present, mixed_set, 0.05);
     run_allTests("BlockedBloomFilter", blocked_filter, to_insert, not_present, mixed_set, 0.05);
@@ -205,6 +211,10 @@ int main() {
     run_allTests("ArrowBloomFilter_avx2", arrow_filter_avx2, to_insert, not_present, mixed_set, 0.05);
     run_allTests("ModifiedArrowFilter_scalar", modified_arrow_filter, to_insert, not_present, mixed_set, 0.05);
     run_allTests("ModifiedArrowFilter_avx2", modified_arrow_avx2, to_insert, not_present, mixed_set, 0.05);
+    //run_allTests("16BitBlockFilter_scalar", modified_block16_filter, to_insert, not_present, mixed_set, 0.05);
+    //run_allTests("16BitBlockFilter_avx2", modified_block16_avx2, to_insert, not_present, mixed_set, 0.05);
+    run_allTests("ImprovedArrow_scalar", impr_arrow_filter, to_insert, not_present, mixed_set, 0.05);
+    run_allTests("ImprovedArrow_avx2", impr_arrow_filter_avx2, to_insert, not_present, mixed_set, 0.05);
     std::cout << "\nAll tests passed.\n";
     return 0;
 }

@@ -31,11 +31,11 @@ inline int ceil_log2(std::uint64_t x) {
 }
 
 inline void setBit(std::uint8_t* bytes, std::size_t idx) {
-    bytes[idx / 8] |= static_cast<uint8_t>(1u << (idx % 8));
+    bytes[idx >> 3u] |= static_cast<uint8_t>(1u << (idx & 7u));
 }
 
 inline bool getBit(const std::uint8_t* bytes, std::size_t idx) {
-    return ((bytes[idx / 8] & static_cast<std::uint8_t>(1u << (idx % 8))) != 0);
+    return ((bytes[idx >> 3u] & static_cast<std::uint8_t>(1u << (idx & 7u))) != 0);
 }
 
 // calculates how many bits would be used for the basic bloom filter
