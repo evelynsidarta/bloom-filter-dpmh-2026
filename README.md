@@ -1,41 +1,86 @@
-# bloom-filter-dpmh-2026
+# Bloom Filter DPMH 2026
 
-How to use:
-build test & benchmark -> make
+A C++ project for testing and benchmarking multiple Bloom filter implementations. 
+Created for Data Processing on Modern Hardware Praktikum, 07.2026.
 
-TEST
-- small "correctness" test to ensure bloom filters are working properly
-- tests:
-    -- creating empty bloom array and ensure bitarray is not set (totally empty) during creation
-    -- inserting into bloom filters in a scalar and batched manner and test bitarray state after insertion
-    -- tries inserting duplicates into the bloom filter and check if the bit array changes at all afterwards
-    -- checks if scalar and batch insertion behaves in the same way
-    -- checks contains function (both scalar and batched contains)
-    -- checks if fp rate of the bloom filter is abnormally high (it needs to be below threshold specified in main function)
-- possible to insert more implementations (that implement BloomFilter.h), simply modify main function in src/test.cpp
-- possible to modify fp rate to check against (default is set to 5%)
+## Build
 
-BENCHMARK
-- benchmarks the build cycles, insert ns/tuple, insert cyc/tuple, probe ns/tuple, probe cyc/tuple for 3 different types of workloads
-- different workloads: all hits, all misses, mixed workload (with hits and mits to the Bloom Filter)
-- different Bloom filter implementations: Basic Bloom FIlter implementation, Blocked Bloom Filter, Arrow's Bloom filter, etc.
-- possible to add more tests/bloom filter implementations (modify bench.cpp)
-- results are printed out at the end (or saved to csv if the path is specified with -f option)
+Build the test and benchmark targets with:
 
-run the benchmark (possible with following options):
-    -nr INTEGER_NUMBER -> number of rows to insert to the Bloom Filter (and number of negative checks to do to the filter) (720'721 by default)
-    -r  INTEGER_NUMBER -> number of hot runs to do for the benchmark (10 by default)
-    -wr INTEGER_NUMBER -> number of warmup runs to do (1 by default)
-    -f  CSV_PATH       -> to write down results of the benchmark into the specified path (turned off by default)
-    --help for instructions
+```bash
+make
+```
 
-CURRENTLY AVAILABLE IMPLEMENTATIONS:
-- Basic bloom filter
-- Blocked bloom filter
-- Apache Arrow's bloom filter, src: https://github.com/apache/arrow/blob/main/cpp/src/arrow/acero/bloom_filter.h
-- Improved Arrow bloom filter -> slightly optimized version of Apache Arrow's original implementation
-- Modified Arrow bloom filter -> modified version of Arrow's implementation with a direct lookup table instead of sliding-window lookup table
+## Correctness Tests
 
-TO-DOs:
-- multithreaded approach comparisons
-- implementations that use smaller block sizes
+The test suite performs small correctness checks to verify that each Bloom filter implementation behaves as expected.
+
+It checks that:
+
+- A newly created Bloom filter has an empty bit array.
+- Scalar and batch insertions update the bit array correctly.
+- Inserting duplicate values does not change the bit array.
+- Scalar and batch insertion produce equivalent results.
+- Scalar and batch membership checks work correctly.
+- The false-positive rate remains below the configured threshold.
+
+The default false-positive-rate threshold is **5%** and can be changed in the test program's main function.
+
+### Adding an implementation to the tests
+
+Additional implementations can be tested as long as they implement `BloomFilter.h`. Register them in:
+
+```text
+src/test.cpp
+```
+
+## Benchmark
+
+The benchmark measures:
+
+- Build cycles
+- Insertion time in nanoseconds per tuple
+- Insertion cycles per tuple
+- Probe time in nanoseconds per tuple
+- Probe cycles per tuple
+
+### Workloads
+
+Three workload types are supported:
+
+1. **All hits** — every lookup is expected to be present.
+2. **All misses** — every lookup is expected to be absent.
+3. **Mixed** — lookups contain both hits and misses.
+
+### Output
+
+Results are printed when the benchmark finishes. They can also be saved to a CSV file by using the `-f` option.
+
+### Command-line options
+
+| Option | Value | Default | Description |
+|---|---:|---:|---|
+| `-nr` | Integer | `720,721` | Number of rows inserted into the Bloom filter and number of negative membership checks performed. |
+| `-r` | Integer | `10` | Number of measured, or “hot,” benchmark runs. |
+| `-wr` | Integer | `1` | Number of warm-up runs. |
+| `-f` | CSV path | Disabled | Writes benchmark results to the specified CSV file. |
+| `--help` | — | — | Displays usage instructions. |
+
+To add benchmark cases or Bloom filter implementations, modify:
+
+```text
+bench.cpp
+```
+
+## Available Implementations
+
+- **Basic Bloom Filter**
+- **Blocked Bloom Filter**
+- **Apache Arrow Bloom Filter** — based on [Apache Arrow's implementation](https://github.com/apache/arrow/blob/main/cpp/src/arrow/acero/bloom_filter.h)
+- **Improved Arrow Bloom Filter** — a slightly optimized version of the original Apache Arrow implementation
+- **Modified Arrow Bloom Filter** — uses a direct lookup table instead of a sliding-window lookup table
+
+## To-Dos
+
+- [ ] Compare multithreaded approaches
+- [ ] Add implementations that use smaller block sizes
